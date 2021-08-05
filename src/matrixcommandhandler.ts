@@ -20,7 +20,7 @@ import { DiscordBridgeConfig } from "./config";
 import { IMatrixEvent } from "./matrixtypes";
 import { Provisioner } from "./provisioner";
 import { Util, ICommandActions, ICommandParameters, CommandPermissonCheck } from "./util";
-import * as Discord from "better-discord.js";
+import * as Discord from "discord.js";
 import { Appservice } from "matrix-bot-sdk";
 import { IRoomStoreEntry } from "./db/roomstore";
 import * as markdown from "marked";

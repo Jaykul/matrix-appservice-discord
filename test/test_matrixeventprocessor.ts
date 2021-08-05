@@ -15,7 +15,7 @@ limitations under the License.
 */
 
 import { expect } from "chai";
-import * as Discord from "better-discord.js";
+import * as Discord from "discord.js";
 import * as Proxyquire from "proxyquire";
 import { MockMember } from "./mocks/member";
 import { MatrixEventProcessor, MatrixEventProcessorOpts } from "../src/matrixeventprocessor";
@@ -198,7 +198,7 @@ function createMatrixEventProcessor(storeMockResults = 0) {
             return new MockChannel("123456");
         },
         GetDiscordUserOrMember: async (s) => {
-            return new Discord.User({ } as any, { username: "Someuser" });
+            return new Discord.User({ } as any, {id: "someid", username: "Someuser" });
         },
         HandleMatrixKickBan: () => {
             KICKBAN_HANDLED = true;

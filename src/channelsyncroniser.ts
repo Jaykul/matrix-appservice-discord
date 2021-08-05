@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import * as Discord from "better-discord.js";
+import * as Discord from "discord.js";
 import { DiscordBot } from "./bot";
 import { Util } from "./util";
 import { DiscordBridgeConfig, DiscordBridgeConfigChannelDeleteOptions } from "./config";
@@ -67,7 +67,7 @@ export class ChannelSyncroniser {
     }
 
     public async OnUpdate(channel: Discord.Channel) {
-        if (channel.type !== "text") {
+        if (channel.type !== "GUILD_TEXT") {
             return; // Not supported for now
         }
         const channelState = await this.GetChannelUpdateState(channel as Discord.TextChannel);
@@ -82,7 +82,7 @@ export class ChannelSyncroniser {
         log.verbose(`Got guild update for guild ${guild.id}`);
         const channelStates: IChannelState[] = [];
         for (const [_, channel] of guild.channels.cache) {
-            if (channel.type !== "text") {
+            if (channel.type !== "GUILD_TEXT") {
                 continue; // not supported for now
             }
             try {
@@ -120,7 +120,7 @@ export class ChannelSyncroniser {
     }
 
     public async OnDelete(channel: Discord.Channel) {
-        if (channel.type !== "text") {
+        if (channel.type !== "GUILD_TEXT") {
             log.info(`Channel ${channel.id} was deleted but isn't a text channel, so ignoring.`);
             return;
         }
@@ -128,7 +128,7 @@ export class ChannelSyncroniser {
         let roomids;
         let entries: IRoomStoreEntry[];
         try {
-            roomids = await this.GetRoomIdsFromChannel(channel);
+            roomids = await this.GetRoomIdsFromChannel(channel as Discord.TextChannel);
             entries = await this.roomStore.getEntriesByMatrixIds(roomids);
         } catch (e) {
             log.warn(`Couldn't find roomids for deleted channel ${channel.id}`);
@@ -153,7 +153,7 @@ export class ChannelSyncroniser {
         }
     }
 
-    public async GetRoomIdsFromChannel(channel: Discord.Channel): Promise<string[]> {
+    public async GetRoomIdsFromChannel(channel: Discord.TextBasedChannels): Promise<string[]> {
         const rooms = await this.roomStore.getEntriesByRemoteRoomData({
             discord_channel: channel.id,
         });
@@ -164,7 +164,7 @@ export class ChannelSyncroniser {
         return rooms.map((room) => room.matrix!.getId() as string);
     }
 
-    public async GetAliasFromChannel(channel: Discord.Channel): Promise<string | null> {
+    public async GetAliasFromChannel(channel: Discord.TextChannel): Promise<string | null> {
         let rooms: string[] = [];
         try {
             rooms = await this.GetRoomIdsFromChannel(channel);
@@ -350,7 +350,7 @@ export class ChannelSyncroniser {
 
         await this.roomStore.upsertEntry(entry);
         if (options.ghostsLeave) {
-            for (const member of channel.members.array()) {
+            for (const member of channel.members.values()) {
                 try {
                     const mIntent = this.bot.GetIntentFromDiscordMember(member);
                     await client.leaveRoom(roomId);

@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import * as Discord from "better-discord.js";
+import * as Discord from "discord.js";
 import { DiscordBot } from "./bot";
 import { Log } from "./log";
 import {
@@ -58,7 +58,7 @@ export class DiscordMessageProcessor {
                 if (!channel) {
                     return null;
                 }
-                const alias = await this.bot.ChannelSyncroniser.GetAliasFromChannel(channel);
+                const alias = await this.bot.ChannelSyncroniser.GetAliasFromChannel(channel as Discord.TextChannel);
                 if (!alias) {
                     return null;
                 }
