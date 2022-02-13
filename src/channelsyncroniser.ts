@@ -153,7 +153,7 @@ export class ChannelSyncroniser {
         }
     }
 
-    public async GetRoomIdsFromChannel(channel: Discord.TextBasedChannels): Promise<string[]> {
+    public async GetRoomIdsFromChannel(channel: Discord.TextBasedChannel): Promise<string[]> {
         const rooms = await this.roomStore.getEntriesByRemoteRoomData({
             discord_channel: channel.id,
         });

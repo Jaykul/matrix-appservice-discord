@@ -69,7 +69,7 @@ function generateRegistration(opts, registrationPath: string): void {
         url: opts.url,
         /* eslint-enable @typescript-eslint/naming-convention */
     } as IAppserviceRegistration;
-    fs.writeFileSync(registrationPath, yaml.safeDump(reg));
+    fs.writeFileSync(registrationPath, yaml.dump(reg));
 }
 
 function setupLogging(): void {
@@ -134,11 +134,11 @@ async function run(): Promise<void> {
     }
 
     const config = new DiscordBridgeConfig();
-    const readConfig = yaml.safeLoad(fs.readFileSync(configPath, "utf8"));
-    if (typeof readConfig !== "object") {
+    const readConfig = yaml.load(fs.readFileSync(configPath, "utf8"));
+    if (readConfig === null || typeof readConfig !== "object") {
         throw Error("Config is not of type object");
     }
-    config.applyConfig(readConfig);
+    config.applyConfig(readConfig!);
     config.applyEnvironmentOverrides(process.env);
     Log.Configure(config.logging);
     const port = opts.port || config.bridge.port;
@@ -151,7 +151,7 @@ async function run(): Promise<void> {
                   "https://github.com/Half-Shot/matrix-appservice-discord/");
         throw Error("Bridge has legacy configuration options and is unable to start");
     }
-    const registration = yaml.safeLoad(fs.readFileSync(registrationPath, "utf8")) as IAppserviceRegistration;
+    const registration = yaml.load(fs.readFileSync(registrationPath, "utf8")) as IAppserviceRegistration;
     setupLogging();
 
     const store = new DiscordStore(config.database);

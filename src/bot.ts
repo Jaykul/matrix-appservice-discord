@@ -709,7 +709,7 @@ export class DiscordBot {
         }
     }
 
-    public async GetChannelFromRoomId(roomId: string, client?: Discord.Client): Promise<Discord.Channel> {
+    public async GetChannelFromRoomId(roomId: string, client?: Discord.Client): Promise<Discord.AnyChannel> {
         const entries = await this.store.roomStore.getEntriesByMatrixId(
             roomId,
         );
@@ -778,7 +778,7 @@ export class DiscordBot {
                     return;
                 }
                 try {
-                    rooms = rooms.concat(await this.channelSync.GetRoomIdsFromChannel(channel as Discord.TextBasedChannels));
+                    rooms = rooms.concat(await this.channelSync.GetRoomIdsFromChannel(channel as Discord.TextBasedChannel));
                 } catch (e) { } // no bridged rooms for this channel
             });
             if (rooms.length === 0) {
@@ -806,7 +806,7 @@ export class DiscordBot {
         previousState: string, reason?: string,
     ) {
         const client = await this.clientFactory.getClient(kicker);
-        let channel: Discord.Channel;
+        let channel: Discord.AnyChannel;
         try {
             channel = await this.GetChannelFromRoomId(roomId, client);
         } catch (ex) {
@@ -927,7 +927,7 @@ export class DiscordBot {
         return true;
     }
 
-    private async OnTyping(channel: Discord.TextBasedChannels, user: Discord.User|Discord.PartialUser, isTyping: boolean) {
+    private async OnTyping(channel: Discord.TextBasedChannel, user: Discord.User|Discord.PartialUser, isTyping: boolean) {
         const rooms = await this.channelSync.GetRoomIdsFromChannel(channel);
         try {
             const intent = this.GetIntentFromDiscordMember(user);
