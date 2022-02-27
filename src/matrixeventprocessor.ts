@@ -500,13 +500,13 @@ export class MatrixEventProcessor {
             if (userOrMember instanceof Discord.User) {
                 embed.setAuthor(
                     userOrMember.username,
-                    userOrMember.avatarURL() || undefined,
+                    userOrMember.avatarURL({ extension: this.config.bridge.avatarImageExtension }) || undefined,
                 );
                 return;
             } else if (userOrMember instanceof Discord.GuildMember) {
                 embed.setAuthor(
                     userOrMember.displayName,
-                    userOrMember.user.avatarURL() || undefined,
+                    userOrMember.user.avatarURL({ extension: this.config.bridge.avatarImageExtension }) || undefined,
                 );
                 return;
             }

@@ -102,6 +102,7 @@ class DiscordBridgeConfigBridge {
     public userLimit: number|null = null;
     public adminMxid: string|null = null;
     public invalidTokenMessage: string = 'Your Discord token is invalid';
+    public avatarImageExtension: string = 'webp';
 }
 
 export class DiscordBridgeConfigDatabase {
