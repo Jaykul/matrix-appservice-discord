@@ -1,11 +1,13 @@
-FROM node:14-alpine AS BUILD
+ARG NODE_VERSION=17.6.0
+ARG ALPINE_VERSION=3.15
+FROM node:${NODE_VERSION}-alpine${ALPINE_VERSION} AS BUILD
 COPY . /tmp/src
 # install some dependencies needed for the build process
 RUN apk add --no-cache -t build-deps make gcc g++ python3 ca-certificates libc-dev wget git
 RUN cd /tmp/src \
     && yarn
 
-FROM node:14-alpine
+FROM node:${NODE_VERSION}-alpine${ALPINE_VERSION}
 ENV NODE_ENV=production
 COPY --from=BUILD /tmp/src/build /build
 COPY --from=BUILD /tmp/src/config /config
