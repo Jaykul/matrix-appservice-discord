@@ -15,7 +15,7 @@ limitations under the License.
 */
 
 import { DiscordBot } from "./bot";
-import * as Discord from "better-discord.js";
+import * as Discord from "discord.js";
 import { Util, ICommandActions, ICommandParameters, CommandPermissonCheck } from "./util";
 import { Log } from "./log";
 import { Appservice } from "matrix-bot-sdk";
@@ -111,7 +111,7 @@ export class DiscordCommandHandler {
             if (!Array.isArray(permission)) {
                 permission = [permission];
             }
-            return permission.every((p) => discordMember.hasPermission(p as Discord.PermissionResolvable));
+            return permission.every((p) => discordMember.permissions);
         };
 
         const reply = await Util.ParseCommand("!matrix", msg.content, actions, parameters, permissionCheck);
@@ -123,7 +123,7 @@ export class DiscordCommandHandler {
             let allChannelMxids: string[] = [];
             await Promise.all(discordChannel.guild.channels.cache.map(async (chan) => {
                 try {
-                    const chanMxids = await this.discord.ChannelSyncroniser.GetRoomIdsFromChannel(chan);
+                    const chanMxids = await this.discord.ChannelSyncroniser.GetRoomIdsFromChannel(chan as Discord.TextChannel);
                     allChannelMxids = allChannelMxids.concat(chanMxids);
                 } catch (e) {
                     // pass, non-text-channel

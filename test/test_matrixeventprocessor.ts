@@ -15,7 +15,7 @@ limitations under the License.
 */
 
 import { expect } from "chai";
-import * as Discord from "better-discord.js";
+import * as Discord from "discord.js";
 import * as Proxyquire from "proxyquire";
 import { MockMember } from "./mocks/member";
 import { MatrixEventProcessor, MatrixEventProcessorOpts } from "../src/matrixeventprocessor";
@@ -154,6 +154,12 @@ let KICKBAN_HANDLED = false;
 let MESSAGE_SENT = false;
 let MESSAGE_EDITED = false;
 
+class MockUser extends Discord.User {
+    constructor(id: string, username: string) {
+        super({} as any, { id: id, username: username });
+    }
+}
+
 function createMatrixEventProcessor(storeMockResults = 0) {
     STATE_EVENT_MSG = "";
     MESSAGE_PROCCESS = "";
@@ -198,7 +204,7 @@ function createMatrixEventProcessor(storeMockResults = 0) {
             return new MockChannel("123456");
         },
         GetDiscordUserOrMember: async (s) => {
-            return new Discord.User({ } as any, { username: "Someuser" });
+            return new MockUser("someid", "Someuser");
         },
         HandleMatrixKickBan: () => {
             KICKBAN_HANDLED = true;

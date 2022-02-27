@@ -29,6 +29,7 @@ export class Lock<T> {
                 this.release(key);
             }, this.timeout);
             // aaand store to our lock
+            //@ts-ignore
             this.locks.set(key, {r: resolve, i});
         });
         this.lockPromises.set(key, p);

@@ -59,7 +59,7 @@ if (options.help) {
     process.exit(0);
 }
 
-const yamlConfig = yaml.safeLoad(fs.readFileSync(options.config, "utf8"));
+const yamlConfig = yaml.load(fs.readFileSync(options.config, "utf8"));
 if (yamlConfig === null || typeof yamlConfig !== "object") {
     throw Error("You have an error in your discord config.");
 }

@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import * as Discord from "better-discord.js";
+import * as Discord from "discord.js";
 import { IMatrixMessage } from "./matrixtypes";
 import * as Parser from "node-html-parser";
 import { Util } from "./util";
@@ -26,6 +26,7 @@ import {
     IMatrixMessageParserOpts,
     MatrixMessageParser,
 } from "matrix-discord-parser";
+import { RawGuildEmojiData } from "discord.js/typings/rawDataTypes";
 
 const DEFAULT_ROOM_NOTIFY_POWER_LEVEL = 50;
 
@@ -107,7 +108,7 @@ export class MatrixMessageProcessor {
                 return match && match[1] || null;
             },
             getEmoji: async (mxc: string, name: string) => {
-                let emoji: {id: string, animated: boolean, name: string} | null = null;
+                let emoji;
                 try {
                     const emojiDb = await this.bot.GetEmojiByMxc(mxc);
                     const id = emojiDb.EmojiId;

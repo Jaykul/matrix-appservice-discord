@@ -28,7 +28,7 @@ import { UserSyncroniser } from "./usersyncroniser";
 import { ChannelSyncroniser } from "./channelsyncroniser";
 import { MatrixRoomHandler } from "./matrixroomhandler";
 import { Log } from "./log";
-import * as Discord from "better-discord.js";
+import * as Discord from "discord.js";
 import * as mime from "mime";
 import { IMatrixEvent, IMatrixMediaInfo, IMatrixMessage } from "./matrixtypes";
 import { Appservice, Intent, MatrixClient } from "matrix-bot-sdk";
@@ -188,16 +188,16 @@ export class DiscordBot {
     }
 
     public GetIntentFromDiscordMember(member: Discord.GuildMember | Discord.PartialUser | Discord.User,
-                                      webhookID: string|null = null): Intent {
-        if (webhookID) {
-            // webhookID and user IDs are the same, they are unique, so no need to prefix _webhook_
+                                      webhookId: string|null = null): Intent {
+        if (webhookId) {
+            // webhookId and user IDs are the same, they are unique, so no need to prefix _webhook_
             const name = member instanceof Discord.GuildMember ? member.user.username : member.username;
             if (!name) {
                 log.error("Couldn't get intent for Discord member, name was null:", member);
                 throw Error("Couldn't get intent for Discord member, name was null");
             }
             // TODO: We need to sanitize name
-            return this.bridge.getIntentForSuffix(`${webhookID}_${Util.EscapeStringForUserId(name)}`);
+            return this.bridge.getIntentForSuffix(`${webhookId}_${Util.EscapeStringForUserId(name)}`);
         }
         return this.bridge.getIntentForSuffix(member.id);
     }
@@ -229,9 +229,9 @@ export class DiscordBot {
         }
         const client = await this.clientFactory.getClient();
         if (!this.config.bridge.disableTypingNotifications) {
-            client.on("typingStart", async (channel, user) => {
+            client.on("typingStart", async (typing) => {
                 try {
-                    await this.OnTyping(channel, user, true);
+                    await this.OnTyping(typing.channel, typing.user, true);
                 } catch (err) { log.warning("Exception thrown while handling \"typingStart\" event", err); }
             });
         }
@@ -341,7 +341,7 @@ export class DiscordBot {
 
         client.on("userUpdate", async (_, user) => {
             try {
-                if (!(user instanceof Discord.User)) {
+                if (user.partial) {
                     log.warn(`Ignoring update for ${user.username}. User was partial.`);
                     return;
                 }
@@ -350,7 +350,7 @@ export class DiscordBot {
         });
         client.on("guildMemberAdd", async (member) => {
             try {
-                if (!(member instanceof Discord.GuildMember)) {
+                if (member.partial) {
                     log.warn(`Ignoring update for ${member.guild.id} ${member.id}. User was partial.`);
                     return;
                 }
@@ -368,7 +368,7 @@ export class DiscordBot {
         });
         client.on("guildMemberUpdate", async (_, member) => {
             try {
-                if (!(member instanceof Discord.GuildMember)) {
+                if (member.partial) {
                     log.warn(`Ignoring update for ${member.guild.id} ${member.id}. User was partial.`);
                     return;
                 }
@@ -387,8 +387,8 @@ export class DiscordBot {
             }
             this.bot.guilds.cache.forEach((guild) => {
                 guild.members.cache.forEach((member) => {
-                    if (member.id !== this.GetBotId()) {
-                        this.presenceHandler.EnqueueUser(member.user.presence);
+                    if (member.id !== this.GetBotId() && member.presence != null) {
+                        this.presenceHandler.EnqueueUser(member.presence);
                     }
                 });
             });
@@ -433,7 +433,7 @@ export class DiscordBot {
     }
 
     public GetGuilds(): Discord.Guild[] {
-        return this.bot.guilds.cache.array();
+        return Array.from(this.bot.guilds.cache.values());
     }
 
     public ThirdpartySearchForChannels(guildId: string, channelName: string): IThirdPartyLookup[] {
@@ -470,7 +470,7 @@ export class DiscordBot {
                 throw new Error(`Guild "${server}" not found`);
             }
             const channel = guild.channels.resolve(room);
-            if (channel && channel.type === "text") {
+            if (channel && channel.type === "GUILD_TEXT") {
                 if (hasSender) {
                     const permissions = guild.me && channel.permissionsFor(guild.me);
                     if (!permissions || !permissions.has("VIEW_CHANNEL") || !permissions.has("SEND_MESSAGES")) {
@@ -528,11 +528,14 @@ export class DiscordBot {
         }
         if (!botUser) {
             try {
+                var preparedEmbed = this.prepareEmbedSetBotAccount(embedSet)
                 if (!roomLookup.canSendEmbeds) {
-                    await oldMsg.edit(this.prepareEmbedSetUserAccount(embedSet), opts);
+                    await oldMsg.edit(this.prepareEmbedSetUserAccount(embedSet));
                 } else {
-                    opts.embed = this.prepareEmbedSetBotAccount(embedSet);
-                    await oldMsg.edit(embed.description, opts);
+                    if (preparedEmbed && embed.description){
+                        opts.embeds?.push(preparedEmbed)
+                        await oldMsg.edit(embed.description);
+                    }
                 }
                 return;
             } catch (err) {
@@ -614,22 +617,30 @@ export class DiscordBot {
             this.channelLock.set(chan.id);
             if (!roomLookup.canSendEmbeds) {
                 // NOTE: Don't send replies to discord if we are a puppet user.
-                msg = await chan.send(this.prepareEmbedSetUserAccount(embedSet), opts);
+                //this.prepareEmbedSetUserAccount(embedSet)
+                msg = await chan.send(opts);
             } else if (!botUser) {
-                opts.embed = this.prepareEmbedSetBotAccount(embedSet);
-                msg = await chan.send(embed.description, opts);
+                var preparedEmbed = this.prepareEmbedSetBotAccount(embedSet);
+                if (preparedEmbed){
+                    opts.embeds?.push();
+                    opts.content = embed.description;
+                    msg = await chan.send(opts);
+                }
             } else if (hook) {
                 MetricPeg.get.remoteCall("hook.send");
                 const embeds = this.prepareEmbedSetWebhook(embedSet);
-                msg = await hook.send(embed.description, {
-                    avatarURL: embed!.author!.iconURL,
-                    embeds,
-                    files: opts.files,
-                    username: embed!.author!.name,
-                });
+                //@ts-ignore
+                msg = await hook.send({
+                     content: embed.description,
+                     avatarURL: embed!.author!.iconURL,
+                     embeds,
+                     files: opts.files,
+                     username: embed!.author!.name,
+                 });
             } else {
-                opts.embed = this.prepareEmbedSetBot(embedSet);
-                msg = await chan.send("", opts);
+                opts.embeds?.push(this.prepareEmbedSetBot(embedSet));
+                //opts.content = 
+                msg = await chan.send(opts);
             }
             // Don't block on this.
             const storePromise = this.StoreMessagesSent(msg, chan, event).then(() => {
@@ -698,7 +709,7 @@ export class DiscordBot {
         }
     }
 
-    public async GetChannelFromRoomId(roomId: string, client?: Discord.Client): Promise<Discord.Channel> {
+    public async GetChannelFromRoomId(roomId: string, client?: Discord.Client): Promise<Discord.AnyChannel> {
         const entries = await this.store.roomStore.getEntriesByMatrixId(
             roomId,
         );
@@ -762,19 +773,19 @@ export class DiscordBot {
 
         if (member) {
             let rooms: string[] = [];
-            await Util.AsyncForEach(guild.channels.cache.array(), async (channel) => {
-                if (channel.type !== "text" || !channel.members.has(member.id)) {
+            await Util.AsyncForEach(Array.from(guild.channels.cache.values()), async (channel) => {
+                if (channel.type !== "GUILD_TEXT" || !channel.members.has(member.id)) {
                     return;
                 }
                 try {
-                    rooms = rooms.concat(await this.channelSync.GetRoomIdsFromChannel(channel));
+                    rooms = rooms.concat(await this.channelSync.GetRoomIdsFromChannel(channel as Discord.TextBasedChannel));
                 } catch (e) { } // no bridged rooms for this channel
             });
             if (rooms.length === 0) {
                 log.verbose(`No rooms were found for this guild and member (guild:${guild.id} member:${member.id})`);
                 throw new Error("Room(s) not found.");
             }
-            this.roomIdsForGuildCache.set(`${guild.id}:${guild.member}`, {roomIds: rooms, ts: Date.now()});
+            this.roomIdsForGuildCache.set(`${guild.id}:${member}`, {roomIds: rooms, ts: Date.now()});
             return rooms;
         } else {
             const rooms = await this.store.roomStore.getEntriesByRemoteRoomData({
@@ -794,16 +805,15 @@ export class DiscordBot {
         roomId: string, kickeeUserId: string, kicker: string, kickban: "leave"|"ban",
         previousState: string, reason?: string,
     ) {
-        const restore = kickban === "leave" && previousState === "ban";
         const client = await this.clientFactory.getClient(kicker);
-        let channel: Discord.Channel;
+        let channel: Discord.AnyChannel;
         try {
             channel = await this.GetChannelFromRoomId(roomId, client);
         } catch (ex) {
             log.error("Failed to get channel for ", roomId, ex);
             return;
         }
-        if (channel.type !== "text") {
+        if (channel.type !== "GUILD_TEXT") {
             log.warn("Channel was not a text channel");
             return;
         }
@@ -817,58 +827,11 @@ export class DiscordBot {
             return;
         }
         const kickee = kickeeUser as Discord.GuildMember;
-        let res: Discord.Message;
-        const botChannel = await this.GetChannelFromRoomId(roomId) as Discord.TextChannel;
-        if (restore) {
-            await tchan.overwritePermissions([
-                {
-                    allow: ["SEND_MESSAGES", "VIEW_CHANNEL"],
-                    id: kickee.id,
-                }],
-                `Unbanned.`,
-            );
-            this.channelLock.set(botChannel.id);
-            res = await botChannel.send(
-                `${kickee} was unbanned from this channel by ${kicker}.`,
-            ) as Discord.Message;
-            this.sentMessages.push(res.id);
-            this.channelLock.release(botChannel.id);
-            return;
-        }
-        const existingPerms = tchan.permissionsFor(kickee);
-        if (existingPerms && existingPerms.has(Discord.Permissions.FLAGS.VIEW_CHANNEL as number) === false ) {
-            log.warn("User isn't allowed to read anyway.");
-            return;
-        }
-        const word = `${kickban === "ban" ? "banned" : "kicked"}`;
-        this.channelLock.set(botChannel.id);
-        res = await botChannel.send(
-            `${kickee} was ${word} from this channel by ${kicker}.`
-            + (reason ? ` Reason: ${reason}` : ""),
-        ) as Discord.Message;
-        this.sentMessages.push(res.id);
-        this.channelLock.release(botChannel.id);
-        log.info(`${word} ${kickee}`);
 
-        await tchan.overwritePermissions([
-            {
-                deny: ["SEND_MESSAGES", "VIEW_CHANNEL"],
-                id: kickee.id,
-            }],
-            `Matrix user was ${word} by ${kicker}.`,
-        );
-        if (kickban === "leave") {
-            // Kicks will let the user back in after ~30 seconds.
-            setTimeout(async () => {
-                log.info(`Kick was lifted for ${kickee.displayName}`);
-                await tchan.overwritePermissions([
-                    {
-                        allow: ["SEND_MESSAGES", "VIEW_CHANNEL"],
-                        id: kickee.id,
-                    }],
-                    `Lifting kick since duration expired.`,
-                );
-            }, this.config.room.kickFor);
+        if (kickban == "leave"){
+            kickee.kick(reason);
+        } else {
+            kickee.ban({reason: reason});
         }
     }
 
@@ -906,9 +869,9 @@ export class DiscordBot {
         if (embedSet.replyEmbed) {
             if (!embedSet.imageEmbed) {
                 sendEmbed = embedSet.replyEmbed;
-            } else {
+            } else if (embedSet.replyEmbed!.author!.name && embedSet.replyEmbed!.author!.name ){
                 sendEmbed.addField("Replying to", embedSet.replyEmbed!.author!.name);
-                sendEmbed.addField("Reply text", embedSet.replyEmbed.description);
+                sendEmbed.addField("Reply text", embedSet.replyEmbed!.author!.name);
             }
         }
         return sendEmbed;
@@ -930,14 +893,14 @@ export class DiscordBot {
         if (embedSet.imageEmbed) {
             embed.setImage(embedSet.imageEmbed.image!.url);
         }
-        if (embedSet.replyEmbed) {
+        if (embedSet.replyEmbed && embedSet.replyEmbed!.author!.name && embedSet.replyEmbed.description) {
             embed.addField("Replying to", embedSet.replyEmbed!.author!.name);
             embed.addField("Reply text", embedSet.replyEmbed.description);
         }
         return embed;
     }
 
-    private async SendMatrixMessage(matrixMsg: IDiscordMessageParserResult, chan: Discord.Channel,
+    private async SendMatrixMessage(matrixMsg: IDiscordMessageParserResult, chan: Discord.TextChannel,
                                     guild: Discord.Guild, author: Discord.User,
                                     msgID: string): Promise<boolean> {
         const rooms = await this.channelSync.GetRoomIdsFromChannel(chan);
@@ -964,7 +927,7 @@ export class DiscordBot {
         return true;
     }
 
-    private async OnTyping(channel: Discord.Channel, user: Discord.User|Discord.PartialUser, isTyping: boolean) {
+    private async OnTyping(channel: Discord.TextBasedChannel, user: Discord.User|Discord.PartialUser, isTyping: boolean) {
         const rooms = await this.channelSync.GetRoomIdsFromChannel(channel);
         try {
             const intent = this.GetIntentFromDiscordMember(user);
@@ -1006,10 +969,10 @@ export class DiscordBot {
             return;
         }
         // Test for webhooks
-        if (msg.webhookID) {
+        if (msg.webhookId) {
             const webhook = (await chan.fetchWebhooks())
                             .filter((h) => h.name === "_matrix").first();
-            if (webhook && msg.webhookID === webhook.id) {
+            if (webhook && msg.webhookId === webhook.id) {
                 // Filter out our own webhook messages.
                 log.verbose("Not reflecting own webhook messages");
               // Filter out our own webhook messages.
@@ -1026,7 +989,7 @@ export class DiscordBot {
         }
 
         // Update presence because sometimes discord misses people.
-        await this.userSync.OnUpdateUser(msg.author, Boolean(msg.webhookID));
+        await this.userSync.OnUpdateUser(msg.author, Boolean(msg.webhookId));
         let rooms: string[];
         try {
             rooms = await this.channelSync.GetRoomIdsFromChannel(msg.channel);
@@ -1039,13 +1002,13 @@ export class DiscordBot {
             return null;
         }
         try {
-            const intent = this.GetIntentFromDiscordMember(msg.author, msg.webhookID);
+            const intent = this.GetIntentFromDiscordMember(msg.author, msg.webhookId);
             // Check Attachements
             if (!editEventId) {
                 // on discord you can't edit in images, you can only edit text
                 // so it is safe to only check image upload stuff if we don't have
                 // an edit
-                await Util.AsyncForEach(msg.attachments.array(), async (attachment) => {
+                await Util.AsyncForEach(Array.from(msg.attachments.values()), async (attachment) => {
                     const content = await Util.DownloadFile(attachment.url);
                     const fileMime = content.mimeType || mime.getType(attachment.name || "")
                         || "application/octet-stream";
@@ -1142,10 +1105,10 @@ export class DiscordBot {
                         log.error("Failed to send message into room.", e);
                         return;
                     }
-                    if (msg.member && !msg.webhookID) {
+                    if (msg.member && !msg.webhookId) {
                         await this.userSync.JoinRoom(msg.member, room);
                     } else {
-                        await this.userSync.JoinRoom(msg.author, room, Boolean(msg.webhookID));
+                        await this.userSync.JoinRoom(msg.author, room, Boolean(msg.webhookId));
                     }
                     res = await trySend();
                     await afterSend(res);
@@ -1185,7 +1148,7 @@ export class DiscordBot {
         }
         while (storeEvent.Next()) {
             log.info(`Deleting discord msg ${storeEvent.DiscordId}`);
-            const intent = this.GetIntentFromDiscordMember(msg.author, msg.webhookID);
+            const intent = this.GetIntentFromDiscordMember(msg.author, msg.webhookId);
             await intent.ensureRegistered();
             this.userActivity.updateUserActivity(intent.userId);
             const matrixIds = storeEvent.MatrixId.split(";");

@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-import { User, Presence } from "better-discord.js";
+import { User, Presence } from "discord.js";
 import { DiscordBot } from "./bot";
 import { Log } from "./log";
 import { MetricPeg } from "./metrics";
@@ -63,23 +63,23 @@ export class PresenceHandler {
     }
 
     public EnqueueUser(presence: Presence) {
-        if (presence.userID === this.bot.GetBotId()) {
+        if (presence.user?.id === this.bot.GetBotId()) {
             return;
         }
 
         // Delete stale presence
-        const indexOfPresence = this.presenceQueue.findIndex((u) => u.userID === presence.userID);
+        const indexOfPresence = this.presenceQueue.findIndex((u) => u.user?.id === presence.user?.id);
         if (indexOfPresence !== -1) {
             this.presenceQueue.splice(indexOfPresence, 1);
         }
-        log.verbose(`Adding ${presence.userID} (${presence.user?.username}) to the presence queue`);
+        log.verbose(`Adding ${presence.user?.id} (${presence.user?.username}) to the presence queue`);
         this.presenceQueue.push(presence);
         MetricPeg.get.setPresenceCount(this.presenceQueue.length);
     }
 
     public DequeueUser(user: User) {
         const index = this.presenceQueue.findIndex((item) => {
-            return user.id === item.userID;
+            return user.id === item.user?.id;
         });
         if (index !== -1) {
             this.presenceQueue.splice(index, 1);
@@ -107,7 +107,7 @@ export class PresenceHandler {
             if (!proccessed) {
                 this.presenceQueue.push(presence);
             } else {
-                log.verbose(`Dropping ${presence.userID} from the presence queue.`);
+                log.verbose(`Dropping ${presence.user?.id} from the presence queue.`);
                 MetricPeg.get.setPresenceCount(this.presenceQueue.length);
             }
         }

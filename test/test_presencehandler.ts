@@ -15,7 +15,7 @@ limitations under the License.
 */
 
 import { expect } from "chai";
-import * as Discord from "better-discord.js";
+import * as Discord from "discord.js";
 
 import { PresenceHandler } from "../src/presencehandler";
 import { DiscordBot } from "../src/bot";
